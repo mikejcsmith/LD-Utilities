@@ -1,0 +1,463 @@
+<?php
+/*
+ * Plugin Name: mjcs-utilities
+ */
+ 
+ /**
+ * Register setup
+ */
+
+
+/**
+ * Example usage for learndash_lesson_completed action.
+ */
+
+function mjcs_process_lesson_completed( $user_login, WP_User $user ) {
+
+}
+
+add_action(
+	'learndash_lesson_completed',
+	function( $lesson_data ) {
+	
+	// log to file
+	$lesson = "(" . $lesson_data['lesson']->ID .") " . $lesson_data['lesson']->post_title ; 
+	$course = "(" . $lesson_data['course']->ID .") " . $lesson_data['course']->post_title;
+	$user   = "(" . $lesson_data['user']->ID .") "   . $lesson_data['user']->data->display_name." " . $lesson_data['user']->data->user_login;
+	$Code=0; $jFlag=TRUE; $Event = "Lesson completion :: ".$lesson." in Course: ".$course." by User: ".$user;
+	custom_logs($Code,$jFlag,$Event);
+	$userID   = $lesson_data['user']->ID;
+	custom_logs_user($userID,$Event);
+	//custom_logs_dbase($userID,$Event);
+
+	// also log $lesson_data to file
+	/**
+		 $Code=0; $jFlag=TRUE; $Event = print_r($lesson_data, true) ; 
+		 custom_logs($Code,$jFlag,$Event);
+	*/
+	
+	}
+);
+ 
+
+
+
+function mjcs_process_login( $user_login, WP_User $user ) {
+    // your code
+    
+        $ProgTime= date("Y-m-d h:i:sa");
+	$userID = $user->ID;
+	$Code=0; $jFlag=TRUE; $Event = "User ".$userID." logged in";
+	
+	// Get all user meta data for $userID
+	$meta = get_user_meta( $userID );	
+	
+	$Code=0; $jFlag=TRUE; $Event = "User login :: (" . $userID . ") " . $meta ['first_name'][0] . " " . $meta ['last_name'][0] . " " . $meta ['nickname'][0];
+	custom_logs($Code,$jFlag,$Event);
+	custom_logs_user($userID,$Event);
+	//custom_logs_dbase($userID, $Event);
+
+	write_user_summary ($userID);
+
+}
+
+
+add_action('wp_login', 'mjcs_process_login', 10, 2);
+
+
+/**
+ * Redirect user after successful login.
+ *
+ * @param string $redirect_to URL to redirect to.
+ * @param string $request URL the user is coming from.
+ * @param object $user Logged user's data.
+ * @return string
+ */
+function my_login_redirect( $redirect_to, $request, $user ) {
+	// is there a user to check?
+	if ( isset( $user->roles ) && is_array( $user->roles ) ) {
+		// check for subscriber
+		if ( in_array( 'subscriber', $user->roles ) ) {
+			// redirect them to the default place
+			// return $redirect_to;
+			return site_url().'/courses/';
+		} else {
+			// return home_url();
+			return site_url().'/blog/';
+		}
+	} else {
+		return $redirect_to;
+
+	}
+}
+add_filter( 'login_redirect', 'my_login_redirect', 1, 3 );
+
+function auto_redirect_after_logout($userID){
+	
+    $ProgTime= date("Y-m-d h:i:sa");
+    $user  = get_userdata($userID); 
+    if ( $user instanceof WP_User  )  
+    {  
+        //user email available here
+        //die($user->user_email);  
+    } 	
+	$userID=$userID;
+	
+	
+	//$Code=0; $jFlag=TRUE; $Event = "User ".$userID." logged out";
+	//custom_logs($Code,$jFlag,$Event);
+	
+
+	
+	//get insert id
+	//var_dump( $wpdb->insert_id );
+	//$Code=0; $jFlag=TRUE; $Event = "Database ID: " . print_r($wpdb->insert_id, true);
+	//custom_logs($Code,$jFlag,$Event);
+	//$Code=0; $jFlag=TRUE; $Event = $data;
+	//custom_logs($Code,$jFlag,$Event);
+	
+
+	
+//	$Code=0; $jFlag=TRUE; $Event = var_export($user, true);
+//	custom_logs($Code,$jFlag,$Event);
+
+	// Get all user meta data for $userID
+	$meta = get_user_meta( $userID );
+	
+	// Filter out empty meta data
+//	$meta = array_filter( array_map( function( $a ) {
+//		return $a[0];
+//	}, $meta ) );
+	
+//	$Code=0; $jFlag=TRUE; $Event = print_r($meta, true);
+//	custom_logs($Code,$jFlag,$Event);
+
+	
+	$Code=0; $jFlag=TRUE; $Event = "User logout :: (".$userID.") " . $meta ['first_name'][0] . " " . $meta ['last_name'][0] . " " . $meta ['nickname'][0];
+	custom_logs($Code,$jFlag,$Event);
+	custom_logs_user($userID,$Event);
+	//custom_logs_dbase($userID, $Event);
+
+	write_user_summary ($userID);
+
+/**
+	// Prepare Summary for User
+	$Code=0; $jFlag=TRUE; $Event = "LearnDash Summary :: User (".$userID.") " . $meta ['first_name'][0] . " " . $meta ['last_name'][0] . " " . $meta ['nickname'][0];
+	custom_logs($Code,$jFlag,$Event);
+
+//	$LDProgress = $meta ['_sfwd-course_progress'][0];
+//	custom_logs($LDProgress);
+
+    // unserialise LD info in user meta
+	$ArrLDProgress = unserialize( $meta ['_sfwd-course_progress'][0]);
+//	custom_logs($ArrLDProgress);
+
+// 	Filter out empty ArrLDProgress data
+//	$filterArrLDProgress = array_filter( $ArrLDProgress  );
+
+//	$Code=0; $jFlag=TRUE; $Event = print_r($filterArrLDProgress, true);
+//	custom_logs($Code,$jFlag,$Event);
+	
+// 	Loop through ArrLDProgress array: each course 
+	foreach($ArrLDProgress as $key => $value) { 
+	
+		// find course name
+		$course = get_post($key);
+		$courseTitle = $course->post_title;
+		
+		// write course name to log file
+		$Code=0; $jFlag=TRUE; $Event = "Lessons completed in Course: (". $key . ") " . $courseTitle  ; 
+		custom_logs($Code,$jFlag,$Event);
+		
+		// write json string of LD meta to file
+		$Code=0; $jFlag=TRUE; $Event = "JSON of LD data in user meta: "; 
+		custom_logs($Code,$jFlag,$Event);
+		$Code=0; $jFlag=TRUE; $Event = $value ; 
+		custom_logs($Code,$jFlag,$Event);
+		
+		// Lessons
+		// Completed
+		// $Code=0; $jFlag=TRUE; $Event = print_r($value ['lessons'], true) ; 
+		// custom_logs($Code,$jFlag,$Event);
+		
+
+		$courseLessons = $value ['lessons'];
+		foreach ($courseLessons as $keyLesson => $valueLesson ){
+		
+			$lesson = get_post($keyLesson);
+			$lessonTitle = $lesson->post_title;
+
+			//$Code=0; $jFlag=TRUE; $Event = $keyLesson . " " . $valueLesson ; 
+			//custom_logs($Code,$jFlag,$Event);
+
+			if ($valueLesson == 1){
+			$Code=0; $jFlag=TRUE; $Event = "Lesson (" . $keyLesson . ") " . $lessonTitle ; 
+			custom_logs($Code,$jFlag,$Event);
+					
+			}
+		
+		}
+		
+		// Completed
+		$courseCompleted = $value ['completed'];
+		//$Code=0; $jFlag=TRUE; $Event = "Lessons Completed: " . $courseCompleted;
+		//custom_logs($Code,$jFlag,$Event);
+		
+		
+		// Total and percentage
+		$courseTotal = $value ['total'];
+		$coursePercent = intval(strval( $value ['completed'] / $value ['total'] * 100));
+		$Code=0; $jFlag=TRUE; $Event = "Lessons Completed: " . $courseCompleted . "/" . $courseTotal . " = " . $coursePercent . "% ";
+		custom_logs($Code,$jFlag,$Event);
+		
+		
+		
+		// last lesson accessed
+		$courseLastId = $value ['last_id'];
+		$courseLastIdTitle = get_post($value ['last_id'])->post_title;
+				
+		// Status
+		$courseStatus = $value ['status'];
+		$Code=0; $jFlag=TRUE; $Event = "Last Accessed: (" . $courseLastId . ") " . $courseLastIdTitle . " (" . $courseStatus . ")";
+		custom_logs($Code,$jFlag,$Event);
+		
+		
+		
+		
+		
+	    
+	} 
+		
+**/
+	
+		
+	
+  wp_safe_redirect(site_url()."/login/");
+  exit;
+}
+
+add_action('wp_logout','auto_redirect_after_logout');
+
+function write_user_summary ($userID){
+
+	// $Code=0; $jFlag=TRUE; $Event = "Summary for user: (".$userID.")";
+
+	// Prepare Summary for User
+	// Get all user meta data for $userID
+	$meta = get_user_meta( $userID );
+		
+    	$Code=0; $jFlag=TRUE; $Event = "LearnDash Summary :: User (".$userID.") " . $meta ['first_name'][0] . " " . $meta ['last_name'][0] . " " . $meta ['nickname'][0];
+		custom_logs($Code,$jFlag,$Event);
+		custom_logs_user($userID,$Event);
+		
+        // initialise custom_logs_latest_user($userID,$Event) log file
+        custom_logs_latest_user_initialise ($userID,$Event);
+        
+        // write Learndash as JSON string per user to database table
+    	$Code=0; $jFlag=TRUE; $Event = $meta ['_sfwd-course_progress'][0];
+		custom_logs($Code,$jFlag,$Event);
+		custom_logs_user($userID,$Event);
+        custom_logs_dbase($userID,$Event);
+
+    // unserialise LD info in user meta
+	$ArrLDProgress = unserialize( $meta ['_sfwd-course_progress'][0]);
+
+
+// 	Loop through ArrLDProgress array: each course 
+	foreach($ArrLDProgress as $key => $value) { 
+	
+		// find course name 
+		$course = get_post($key);
+		$courseTitle = $course->post_title;
+		
+		// write course name to log file
+		$Code=0; $jFlag=TRUE; $Event = "Lessons completed in Course: (". $key . ") " . $courseTitle  ; 
+		custom_logs($Code,$jFlag,$Event);
+		custom_logs_user($userID,$Event);
+		custom_logs_latest_user($userID,$Event);
+
+		// write json string of LD meta to file
+		$Code=0; $jFlag=TRUE; $Event = "JSON of LD data in user meta: "; 
+		//custom_logs($Code,$jFlag,$Event);
+		//custom_logs_user($userID,$Event);
+		//custom_logs_latest_user($userID,$Event);
+
+		$Code=0; $jFlag=TRUE; $Event = $value ; 
+		//custom_logs($Code,$jFlag,$Event);
+		custom_logs_user($userID,$Event);
+		custom_logs_latest_user($userID,$Event);
+
+		// Lessons
+		// Completed
+		// $Code=0; $jFlag=TRUE; $Event = print_r($value ['lessons'], true) ; 
+		// custom_logs($Code,$jFlag,$Event);
+		
+
+		$courseLessons = $value ['lessons'];
+		foreach ($courseLessons as $keyLesson => $valueLesson ){
+		
+			$lesson = get_post($keyLesson);
+			$lessonTitle = $lesson->post_title;
+
+			//$Code=0; $jFlag=TRUE; $Event = $keyLesson . " " . $valueLesson ; 
+			//custom_logs($Code,$jFlag,$Event);
+
+			if ($valueLesson == 1){
+			$Code=0; $jFlag=TRUE; $Event = "Lesson (" . $keyLesson . ") " . $lessonTitle ; 
+			//custom_logs($Code,$jFlag,$Event);
+    		custom_logs_user($userID,$Event);
+    		custom_logs_latest_user($userID,$Event);
+
+			}
+		
+		}
+		
+		// Completed
+		$courseCompleted = $value ['completed'];
+		//$Code=0; $jFlag=TRUE; $Event = "Lessons Completed: " . $courseCompleted;
+		//custom_logs($Code,$jFlag,$Event);
+		
+		
+		// Total and percentage
+		$courseTotal = $value ['total'];
+		$coursePercent = intval(strval( $value ['completed'] / $value ['total'] * 100));
+		$Code=0; $jFlag=TRUE; $Event = "Lessons Completed: " . $courseCompleted . "/" . $courseTotal . " = " . $coursePercent . "% ";
+		custom_logs($Code,$jFlag,$Event);
+		custom_logs_user($userID,$Event);
+		custom_logs_latest_user($userID,$Event);
+
+		
+		
+		// last lesson accessed
+		$courseLastId = $value ['last_id'];
+		$courseLastIdTitle = get_post($value ['last_id'])->post_title;
+				
+		// Status
+		$courseStatus = $value ['status'];
+		$Code=0; $jFlag=TRUE; $Event = "Last Accessed: (" . $courseLastId . ") " . $courseLastIdTitle . " (" . $courseStatus . ")";
+		//custom_logs($Code,$jFlag,$Event);
+		custom_logs_user($userID,$Event);
+		custom_logs_latest_user($userID,$Event);
+
+
+	}    
+    
+}
+
+
+function custom_logs($Code=0,$jFlag=TRUE,$message) { 
+    if(is_array($message) and $jFlag) { 
+        $message = json_encode($message); 
+    } 
+    
+    $date = new DateTime("now", new DateTimeZone('Australia/Brisbane') );
+	//echo $date->format('Y-m-d H:i:s');
+    
+    $file = fopen("logs/custom_logs.log","a"); 
+    $fields = array (
+        $date->format('Y'),
+        $date->format('m'),
+        $date->format('d'),
+        $date->format('H'),
+        $date->format('i'),
+        $date->format('s'),
+        $message
+        );
+    
+    //($file, "\n" . $date->format('Y-m-d H:i:s') . " :: " . $message); 
+    fputcsv($file, $fields);
+    fclose($file); 
+}
+
+function custom_logs_user($userID,$message) { 
+    if(is_array($message)) { 
+        $message = json_encode($message); 
+    } 
+    
+    $date = new DateTime("now", new DateTimeZone('Australia/Brisbane') );
+	//echo $date->format('Y-m-d H:i:s');
+    
+    $file = fopen("logs/custom_logs_user_".$userID.".log","a"); 
+    fwrite($file, "\n" . $date->format('Y-m-d H:i:s') . " :: " . $message); 
+    fclose($file); 
+}
+
+function custom_logs_latest_user_initialise ($userID,$message) { 
+    if(is_array($message)) { 
+        $message = json_encode($message); 
+    } 
+    
+    $date = new DateTime("now", new DateTimeZone('Australia/Brisbane') );
+	//echo $date->format('Y-m-d H:i:s');
+    
+    $file = fopen("logs/custom_logs_latest_user_".$userID.".log","w"); 
+    fwrite($file, "\n" . $date->format('Y-m-d H:i:s') . " :: " . $message); 
+    fclose($file); 
+}
+
+function custom_logs_latest_user($userID,$message) { 
+    if(is_array($message)) { 
+        $message = json_encode($message); 
+    } 
+    
+    $date = new DateTime("now", new DateTimeZone('Australia/Brisbane') );
+	//echo $date->format('Y-m-d H:i:s');
+    
+    $file = fopen("logs/custom_logs_latest_user_".$userID.".log","a"); 
+    fwrite($file, "\n" . $date->format('Y-m-d H:i:s') . " :: " . $message); 
+    fclose($file); 
+}
+
+function custom_logs_dbase($userID, $message) { 
+    if(is_array($message)) { 
+        $message = json_encode($message); 
+    } 
+    
+    $date = new DateTime("now", new DateTimeZone('Australia/Brisbane') );
+	//echo $date->format('Y-m-d H:i:s');
+
+	// write to database
+	global $wpdb; 
+	$table = $wpdb->prefix.'eventlog';
+	
+	$data = array(
+	'year' => $date->format('Y'),
+	'month' => $date->format('m'),
+	'day' => $date->format('d'),
+	'hour' => $date->format('H'),
+	'minute' => $date->format('i'),
+	'second' => $date->format('s'),
+	'user_id' => $userID,
+	'Event' => $message
+	
+	);
+	$format = array('%d','%s');
+	$wpdb->insert( $table, $data );
+
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
