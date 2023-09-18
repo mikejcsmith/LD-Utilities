@@ -30,6 +30,8 @@ add_action(
 	custom_logs_user($userID,$Event);
 	//custom_logs_dbase($userID,$Event);
 
+	//custom_logs_dbase($userID,$Event);
+
 	// also log $lesson_data to file
 	/**
 		 $Code=0; $jFlag=TRUE; $Event = print_r($lesson_data, true) ; 
